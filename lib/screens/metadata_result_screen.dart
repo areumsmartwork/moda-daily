@@ -3,16 +3,12 @@ import 'package:intl/intl.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../models/extraction_result.dart';
-import '../widgets/metadata_list_item.dart';
-import '../widgets/metadata_summary_card.dart';
+import '../widgets/components/index.dart';
 import 'travel_map_screen.dart';
 
-/// 추출된 메타데이터 결과 화면.
-/// [result]와 [assetMap]을 생성자로 받으며, Controller 의존이 없다.
-class MetadataResultScreen extends StatelessWidget {
+/// 추출된 메타데이터 결과 화면 — Editorial Cartography 디자인 적용.
+class MetadataResultScreen extends StatefulWidget {
   final ExtractionResult result;
-
-  /// assetId → AssetEntity 맵. 썸네일 표시용.
   final Map<String, AssetEntity> assetMap;
 
   const MetadataResultScreen({
@@ -22,46 +18,43 @@ class MetadataResultScreen extends StatelessWidget {
   });
 
   @override
+  State<MetadataResultScreen> createState() => _MetadataResultScreenState();
+}
+
+class _MetadataResultScreenState extends State<MetadataResultScreen> {
+  NavTab _currentTab = NavTab.metadata;
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('추출 결과'),
-        actions: [
-          // 여행 날짜 범위 표시
-          if (result.hasData)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Center(child: Text(_travelDateRange(), style: const TextStyle(fontSize: 12))),
-            ),
-        ],
+      backgroundColor: const Color(0xFFF9F9F9), // AppColors.surface
+      appBar: AppTopBar(
+        onBack: () => Navigator.maybePop(context),
       ),
-      body: result.hasData ? _ResultBody(result: result, assetMap: assetMap) : _NoGpsBody(),
-      floatingActionButton: result.hasData
-          ? FloatingActionButton.extended(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TravelMapScreen(
-                    result: result,
-                    assetMap: assetMap,
-                  ),
-                ),
-              ),
-              icon: const Icon(Icons.map_outlined),
-              label: const Text('지도에서 보기'),
+      bottomNavigationBar: AppBottomNavBar(
+        currentTab: _currentTab,
+        onTabSelected: (tab) => setState(() => _currentTab = tab),
+      ),
+      body: widget.result.hasData
+          ? _ResultBody(
+              result: widget.result,
+              assetMap: widget.assetMap,
+              onGenerateMap: _goToMap,
             )
-          : null,
+          : const _NoGpsBody(),
     );
   }
 
-  String _travelDateRange() {
-    if (result.metadata.isEmpty) return '';
-    final first = result.metadata.first.capturedAt;
-    final last = result.metadata.last.capturedAt;
-    final fmt = DateFormat('yy.MM.dd');
-    return first.day == last.day && first.month == last.month && first.year == last.year
-        ? fmt.format(first)
-        : '${fmt.format(first)} ~ ${fmt.format(last)}';
+  void _goToMap() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TravelMapScreen(
+          result: widget.result,
+          assetMap: widget.assetMap,
+        ),
+      ),
+    );
   }
 }
 
@@ -70,47 +63,78 @@ class MetadataResultScreen extends StatelessWidget {
 class _ResultBody extends StatelessWidget {
   final ExtractionResult result;
   final Map<String, AssetEntity> assetMap;
+  final VoidCallback onGenerateMap;
 
-  const _ResultBody({required this.result, required this.assetMap});
+  const _ResultBody({
+    required this.result,
+    required this.assetMap,
+    required this.onGenerateMap,
+  });
+
+  String get _tripLabel {
+    if (result.metadata.isEmpty) return '';
+    final first = result.metadata.first.capturedAt;
+    final last = result.metadata.last.capturedAt;
+    final fmt = DateFormat('MMM d, yyyy');
+    return first.day == last.day &&
+            first.month == last.month &&
+            first.year == last.year
+        ? fmt.format(first)
+        : '${fmt.format(first)} — ${fmt.format(last)}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        // 요약 카드
-        SliverToBoxAdapter(
-          child: MetadataSummaryCard(
-            totalSelected: result.totalProcessed,
-            withGps: result.successCount,
-            skipped: result.skippedCount,
-          ),
-        ),
-
-        // 리스트 헤더
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Text(
-              '시간 순 정렬 · ${result.successCount}장',
-              style: const TextStyle(fontSize: 12, color: Colors.black45),
+    return Stack(
+      children: [
+        // ── Scrollable content ────────────────────────────────────
+        CustomScrollView(
+          slivers: [
+            // Editorial Header
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: EditorialHeader(
+                  sessionLabel: 'Archive Session',
+                  title: 'Metadata Logs',
+                  subtitle:
+                      '${result.successCount} items captured · $_tripLabel',
+                ),
+              ),
             ),
+
+            // Card list
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList.separated(
+                itemCount: result.metadata.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, index) {
+                  final meta = result.metadata[index];
+                  return MetadataCard(
+                    metadata: meta,
+                    asset: assetMap[meta.assetId],
+                  );
+                },
+              ),
+            ),
+
+            // Bottom padding for FAB + nav bar
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          ],
+        ),
+
+        // ── Floating CTA ──────────────────────────────────────────
+        Positioned(
+          bottom: 24,
+          left: 24,
+          right: 24,
+          child: PrimaryCtaButton(
+            label: 'Generate Map Archive',
+            icon: Icons.map,
+            onPressed: onGenerateMap,
           ),
         ),
-
-        // 메타데이터 리스트
-        SliverList.builder(
-          itemCount: result.metadata.length,
-          itemBuilder: (_, index) {
-            final meta = result.metadata[index];
-            return MetadataListItem(
-              metadata: meta,
-              asset: assetMap[meta.assetId],
-            );
-          },
-        ),
-
-        // FAB 겹침 방지 여백
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
   }
@@ -119,24 +143,34 @@ class _ResultBody extends StatelessWidget {
 // ─── GPS 없음 안내 ────────────────────────────────────────────────────────────
 
 class _NoGpsBody extends StatelessWidget {
+  const _NoGpsBody();
+
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.location_off_outlined, size: 64, color: Colors.black26),
-            SizedBox(height: 16),
-            Text(
-              'GPS 정보가 있는 사진이 없습니다',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            Icon(
+              Icons.location_off_outlined,
+              size: 64,
+              color: const Color(0xFF44474E).withValues(alpha: 0.4),
             ),
-            SizedBox(height: 8),
-            Text(
+            const SizedBox(height: 16),
+            const Text(
+              'GPS 정보가 있는 사진이 없습니다',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1A1C1C),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
               '카메라 앱의 위치 정보 기록을 활성화한 후\n찍은 사진을 선택해 주세요.',
-              style: TextStyle(color: Colors.black54, height: 1.6),
+              style: TextStyle(color: Color(0xFF44474E), height: 1.6),
               textAlign: TextAlign.center,
             ),
           ],

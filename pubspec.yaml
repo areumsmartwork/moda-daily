@@ -28,6 +28,7 @@ dependencies:
   cupertino_icons: ^1.0.6
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
+  google_fonts: ^8.0.2
 
 dev_dependencies:
   flutter_test:
