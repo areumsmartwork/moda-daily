@@ -91,9 +91,11 @@ class ArchiveController extends ChangeNotifier {
             )).toList(),
       );
 
-      // 5. 갤러리 저장
+      // 5. 갤러리 저장 (권한 없어도 DB 저장은 유지)
       _emit(const ArchiveState.creating(progress: 0.95));
-      await GalleryService.saveVideoToGallery(videoPath);
+      try {
+        await GalleryService.saveVideoToGallery(videoPath);
+      } catch (_) {}
 
       _emit(ArchiveState.done(archiveId: archiveId));
     } catch (e) {
@@ -129,7 +131,9 @@ class ArchiveController extends ChangeNotifier {
         editConfigJson: jsonEncode(config.toJson()),
       );
 
-      await GalleryService.saveVideoToGallery(newPath);
+      try {
+        await GalleryService.saveVideoToGallery(newPath);
+      } catch (_) {}
 
       _emit(ArchiveState.done(archiveId: archiveId));
     } catch (e) {
