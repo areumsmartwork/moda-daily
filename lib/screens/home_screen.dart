@@ -49,17 +49,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 const _HeroCard(),
                 const SizedBox(height: AppSpacing.s10),
 
-                // ── Feature Grid ───────────────────────────────────
-                const _FeatureGrid(),
-                const SizedBox(height: AppSpacing.s10),
-
                 // ── Primary CTA ────────────────────────────────────
                 PrimaryCtaButton(
                   label: '여행 사진 선택하기',
                   icon: Icons.add_photo_alternate_outlined,
                   onPressed: () => _goToPhotoSelection(context),
                 ),
-                const SizedBox(height: AppSpacing.s3),
+                const SizedBox(height: AppSpacing.s2),
                 Text(
                   'GPS 정보가 포함된 사진만 분석됩니다.',
                   style: AppTypography.labelMd.copyWith(
@@ -67,6 +63,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: AppSpacing.s8),
+
+                // ── Feature Grid ───────────────────────────────────
+                const _FeatureGrid(),
+                const SizedBox(height: AppSpacing.s6),
               ],
             ),
           ),
