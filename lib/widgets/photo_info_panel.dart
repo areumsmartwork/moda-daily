@@ -108,7 +108,13 @@ class PhotoInfoPanel extends StatelessWidget {
                             icon: Icons.terrain_outlined,
                             text: m.altitudeText,
                           ),
-                        if (m.cameraModel != null || m.cameraMake != null)
+                        if (m.isVideo && m.videoDurationSeconds != null)
+                          _InfoRow(
+                            icon: Icons.videocam_outlined,
+                            text: _formatDuration(m.videoDurationSeconds!),
+                            color: Colors.blue.shade700,
+                          ),
+                        if (!m.isVideo && (m.cameraModel != null || m.cameraMake != null))
                           _InfoRow(
                             icon: Icons.camera_alt_outlined,
                             text: m.cameraInfo,
@@ -172,6 +178,13 @@ class _ThumbImageState extends State<_ThumbImage> {
             ),
           );
   }
+}
+
+String _formatDuration(int seconds) {
+  final m = seconds ~/ 60;
+  final s = seconds % 60;
+  if (m > 0) return '$m분 $s초';
+  return '$s초';
 }
 
 class _InfoRow extends StatelessWidget {

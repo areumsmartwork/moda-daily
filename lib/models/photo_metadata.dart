@@ -1,13 +1,17 @@
+enum AssetMediaType { photo, video }
+
 class PhotoMetadata {
   final String assetId;
   final String? fileName;
   final DateTime capturedAt;
   final double latitude;
   final double longitude;
-  final double? altitude; // 해발고도 (m)
+  final double? altitude;
   final String? cameraMake;
   final String? cameraModel;
-  final double? imageDirection; // 촬영 방향 0~360°
+  final double? imageDirection;
+  final AssetMediaType mediaType;
+  final int? videoDurationSeconds;
 
   const PhotoMetadata({
     required this.assetId,
@@ -19,7 +23,11 @@ class PhotoMetadata {
     this.cameraMake,
     this.cameraModel,
     this.imageDirection,
+    this.mediaType = AssetMediaType.photo,
+    this.videoDurationSeconds,
   });
+
+  bool get isVideo => mediaType == AssetMediaType.video;
 
   String get cameraInfo {
     final make = cameraMake?.trim();

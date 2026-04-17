@@ -81,11 +81,40 @@ class _MapPhotoMarkerState extends State<MapPhotoMarker> {
                 ),
               ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: _thumb != null
-                  ? Image.memory(_thumb!, fit: BoxFit.cover)
-                  : Icon(Icons.photo_camera, size: 20, color: Colors.grey.shade400),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: _thumb != null
+                      ? Image.memory(_thumb!, fit: BoxFit.cover)
+                      : Icon(
+                          widget.metadata.isVideo
+                              ? Icons.videocam_outlined
+                              : Icons.photo_camera,
+                          size: 20,
+                          color: Colors.grey.shade400,
+                        ),
+                ),
+                // 영상 마커 배지
+                if (widget.metadata.isVideo)
+                  Positioned(
+                    right: 2,
+                    bottom: 2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.all(Radius.circular(3)),
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 10,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           // 핀 삼각형

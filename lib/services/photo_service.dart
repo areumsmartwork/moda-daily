@@ -21,9 +21,12 @@ class PhotoService {
 
   static Future<List<AssetPathEntity>> getAlbums() =>
       PhotoManager.getAssetPathList(
-        type: RequestType.image,
+        type: RequestType.common,
         filterOption: FilterOptionGroup(
           imageOption: const FilterOption(
+            sizeConstraint: SizeConstraint(ignoreSize: true),
+          ),
+          videoOption: const FilterOption(
             sizeConstraint: SizeConstraint(ignoreSize: true),
           ),
           orders: [
@@ -39,7 +42,7 @@ class PhotoService {
   }) =>
       album.getAssetListPaged(page: page, size: pageSize);
 
-  /// 날짜 범위로 필터링된 사진 목록 반환
+  /// 날짜 범위로 필터링된 사진+영상 목록 반환
   static Future<List<AssetEntity>> getPhotosByDateRange(
     AssetPathEntity album,
     DateTimeRange range, {
@@ -48,6 +51,9 @@ class PhotoService {
   }) async {
     final filtered = FilterOptionGroup(
       imageOption: const FilterOption(
+        sizeConstraint: SizeConstraint(ignoreSize: true),
+      ),
+      videoOption: const FilterOption(
         sizeConstraint: SizeConstraint(ignoreSize: true),
       ),
       createTimeCond: DateTimeCond(
@@ -60,7 +66,7 @@ class PhotoService {
     );
 
     final albums = await PhotoManager.getAssetPathList(
-      type: RequestType.image,
+      type: RequestType.common,
       filterOption: filtered,
     );
 
@@ -99,48 +105,80 @@ class PhotoService {
 
   static Future<PhotoMetadata?> _extractSingle(AssetEntity asset) async {
     try {
-      final file = await asset.originFile;
-      if (file == null) return null;
-
-      final bytes = await file.readAsBytes();
-      final exif = await readExifFromBytes(bytes);
-
-      // GPS
-      final lat = _parseGpsCoord(exif['GPS GPSLatitude'], exif['GPS GPSLatitudeRef']?.printable);
-      final lng = _parseGpsCoord(exif['GPS GPSLongitude'], exif['GPS GPSLongitudeRef']?.printable);
-
-      // GPS 없으면 photo_manager의 latlng으로 fallback
-      double? finalLat = lat;
-      double? finalLng = lng;
-      if (finalLat == null || finalLng == null) {
-        final latlng = await asset.latlngAsync();
-        if (latlng != null) {
-          final pLat = latlng.latitude;
-          final pLng = latlng.longitude;
-          if (pLat != 0 || pLng != 0) {
-            finalLat = pLat;
-            finalLng = pLng;
-          }
-        }
+      if (asset.type == AssetType.video) {
+        return await _extractVideo(asset);
       }
-
-      // GPS 정보가 없는 사진은 제외
-      if (finalLat == null || finalLng == null) return null;
-
-      return PhotoMetadata(
-        assetId: asset.id,
-        fileName: asset.title,
-        capturedAt: _parseDateTime(exif) ?? asset.createDateTime,
-        latitude: finalLat,
-        longitude: finalLng,
-        altitude: _parseAltitude(exif),
-        cameraMake: exif['Image Make']?.printable.trim(),
-        cameraModel: exif['Image Model']?.printable.trim(),
-        imageDirection: _parseDirection(exif),
-      );
+      return await _extractPhoto(asset);
     } catch (_) {
       return null;
     }
+  }
+
+  static Future<PhotoMetadata?> _extractPhoto(AssetEntity asset) async {
+    final file = await asset.originFile;
+    if (file == null) return null;
+
+    final bytes = await file.readAsBytes();
+    final exif = await readExifFromBytes(bytes);
+
+    // GPS: EXIF 우선, 없으면 photo_manager fallback
+    final lat = _parseGpsCoord(exif['GPS GPSLatitude'], exif['GPS GPSLatitudeRef']?.printable);
+    final lng = _parseGpsCoord(exif['GPS GPSLongitude'], exif['GPS GPSLongitudeRef']?.printable);
+
+    double? finalLat = lat;
+    double? finalLng = lng;
+    if (finalLat == null || finalLng == null) {
+      final latlng = await asset.latlngAsync();
+      if (latlng != null) {
+        final pLat = latlng.latitude;
+        final pLng = latlng.longitude;
+        if (pLat != 0 || pLng != 0) {
+          finalLat = pLat;
+          finalLng = pLng;
+        }
+      }
+    }
+
+    if (finalLat == null || finalLng == null) return null;
+
+    return PhotoMetadata(
+      assetId: asset.id,
+      fileName: asset.title,
+      capturedAt: _parseDateTime(exif) ?? asset.createDateTime,
+      latitude: finalLat,
+      longitude: finalLng,
+      altitude: _parseAltitude(exif),
+      cameraMake: exif['Image Make']?.printable.trim(),
+      cameraModel: exif['Image Model']?.printable.trim(),
+      imageDirection: _parseDirection(exif),
+      mediaType: AssetMediaType.photo,
+    );
+  }
+
+  static Future<PhotoMetadata?> _extractVideo(AssetEntity asset) async {
+    // 영상 GPS는 photo_manager의 latlngAsync()로만 읽음
+    final latlng = await asset.latlngAsync();
+    double? finalLat, finalLng;
+    if (latlng != null) {
+      final pLat = latlng.latitude;
+      final pLng = latlng.longitude;
+      if (pLat != 0 || pLng != 0) {
+        finalLat = pLat;
+        finalLng = pLng;
+      }
+    }
+
+    if (finalLat == null || finalLng == null) return null;
+
+    return PhotoMetadata(
+      assetId: asset.id,
+      fileName: asset.title,
+      capturedAt: asset.createDateTime,
+      latitude: finalLat,
+      longitude: finalLng,
+      mediaType: AssetMediaType.video,
+      videoDurationSeconds: asset.duration,
+    );
   }
 
   // ─── Private: EXIF 파싱 헬퍼 ─────────────────────────────────────────────
