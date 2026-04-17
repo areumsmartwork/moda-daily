@@ -317,10 +317,10 @@ class _FeatureGrid extends StatelessWidget {
   const _FeatureGrid();
 
   static const _items = [
-    (Icons.location_on_outlined, 'GPS 자동 추출'),
-    (Icons.map_outlined, '여행 경로 시각화'),
-    (Icons.movie_filter_outlined, '숏폼 영상 생성'),
-    (Icons.auto_awesome_outlined, 'AI 자막 생성'),
+    (Icons.location_on_outlined, 'GPS 자동 추출', false),
+    (Icons.map_outlined, '여행 경로 시각화', false),
+    (Icons.movie_filter_outlined, '숏폼 영상 생성', false),
+    (Icons.auto_awesome_outlined, 'AI 자막 생성', true),
   ];
 
   @override
@@ -333,7 +333,7 @@ class _FeatureGrid extends StatelessWidget {
       mainAxisSpacing: AppSpacing.s4,
       childAspectRatio: 1.3,
       children: _items
-          .map((item) => _FeatureCard(icon: item.$1, label: item.$2))
+          .map((item) => _FeatureCard(icon: item.$1, label: item.$2, comingSoon: item.$3))
           .toList(),
     );
   }
@@ -342,39 +342,74 @@ class _FeatureGrid extends StatelessWidget {
 class _FeatureCard extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _FeatureCard({required this.icon, required this.label});
+  final bool comingSoon;
+  const _FeatureCard({required this.icon, required this.label, this.comingSoon = false});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        boxShadow: AppSpacing.cardShadow,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.secondaryFixed.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            ),
-            child: Icon(icon, color: AppColors.secondary, size: 22),
+    final iconColor = comingSoon ? AppColors.onSurfaceVariant.withValues(alpha: 0.35) : AppColors.secondary;
+    final bgColor = comingSoon
+        ? AppColors.onSurfaceVariant.withValues(alpha: 0.06)
+        : AppColors.secondaryFixed.withValues(alpha: 0.3);
+    final labelColor = comingSoon ? AppColors.onSurfaceVariant.withValues(alpha: 0.4) : AppColors.primary;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: comingSoon
+                ? AppColors.surfaceContainerLowest.withValues(alpha: 0.5)
+                : AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            boxShadow: AppSpacing.cardShadow,
           ),
-          const SizedBox(height: AppSpacing.s3),
-          Text(
-            label,
-            style: AppTypography.titleSm.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w700,
-            ),
-            textAlign: TextAlign.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(height: AppSpacing.s3),
+              Text(
+                label,
+                style: AppTypography.titleSm.copyWith(
+                  color: labelColor,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        if (comingSoon)
+          Positioned(
+            top: AppSpacing.s2,
+            right: AppSpacing.s2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.onSurfaceVariant.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusXs),
+              ),
+              child: Text(
+                'SOON',
+                style: AppTypography.dataLabel.copyWith(
+                  color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
