@@ -3,9 +3,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 
+import '../controllers/archive_controller.dart';
 import '../controllers/travel_map_controller.dart';
+import '../core/database/app_database.dart';
 import '../models/extraction_result.dart';
 import '../models/photo_metadata.dart';
+import '../repositories/archive_repository.dart';
+import '../widgets/components/index.dart';
 import '../widgets/map_photo_marker.dart';
 import '../widgets/map_route_layer.dart';
 import '../widgets/photo_info_panel.dart';
@@ -30,6 +34,7 @@ class TravelMapScreen extends StatefulWidget {
 class _TravelMapScreenState extends State<TravelMapScreen> {
   late final TravelMapController _mapCtrl;
   late final MapController _flutterMapCtrl;
+  late final ArchiveController _archiveCtrl;
 
   @override
   void initState() {
@@ -39,11 +44,15 @@ class _TravelMapScreenState extends State<TravelMapScreen> {
       metadata: widget.result.metadata,
       assetMap: widget.assetMap,
     );
+    _archiveCtrl = ArchiveController(
+      ArchiveRepository(AppDatabase()),
+    )..init();
   }
 
   @override
   void dispose() {
     _mapCtrl.dispose();
+    _archiveCtrl.dispose();
     super.dispose();
   }
 
@@ -196,10 +205,59 @@ class _TravelMapScreenState extends State<TravelMapScreen> {
                   onClose: () => _mapCtrl.selectMarker(null),
                 ),
               ),
+
+              // ── 영상 만들기 버튼 ──────────────────────────────────────
+              if (_mapCtrl.selectedMetadata == null)
+                Positioned(
+                  bottom: 24,
+                  left: 24,
+                  right: 24,
+                  child: PrimaryCtaButton(
+                    label: '영상 만들기',
+                    icon: Icons.movie_creation_outlined,
+                    onPressed: _onCreateVideo,
+                  ),
+                ),
             ],
           );
         },
       ),
+    );
+  }
+
+  Future<void> _onCreateVideo() async {
+    final assets = widget.result.metadata
+        .map((m) => widget.assetMap[m.assetId])
+        .whereType<AssetEntity>()
+        .toList();
+
+    if (assets.isEmpty) return;
+
+    // 진행 시트 열기
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ListenableBuilder(
+        listenable: _archiveCtrl,
+        builder: (_, __) => VideoProgressSheet(
+          state: _archiveCtrl.state,
+          onDone: () => Navigator.pop(context),
+          onCancel: () {
+            _archiveCtrl.resetState();
+            Navigator.pop(context);
+          },
+        ),
+      ),
+    );
+
+    // 영상 생성 시작
+    await _archiveCtrl.create(
+      assets: assets,
+      metadataList: widget.result.metadata,
+      title: '여행 ${_travelDateRange()}',
     );
   }
 
