@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../core/database/app_database.dart';
+import '../models/photo_caption.dart';
 import '../models/photo_metadata.dart';
 import '../repositories/archive_repository.dart';
 import '../services/gallery_service.dart';
@@ -51,6 +52,7 @@ class ArchiveController extends ChangeNotifier {
     required List<PhotoMetadata> metadataList,
     required String title,
     double durationPerPhoto = 2.0,
+    Map<String, PhotoCaption>? captions,
   }) async {
     _emit(const ArchiveState.creating(progress: 0.0));
 
@@ -60,6 +62,7 @@ class ArchiveController extends ChangeNotifier {
         assets: assets,
         durationPerPhoto: durationPerPhoto,
         outputFileName: _sanitizeFileName(title),
+        captions: captions,
         onProgress: (p) => _emit(ArchiveState.creating(progress: p * 0.8)),
       );
 

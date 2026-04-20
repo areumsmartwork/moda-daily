@@ -4,12 +4,15 @@ import 'package:latlong2/latlong.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 
 import '../controllers/archive_controller.dart';
+import '../controllers/caption_controller.dart';
 import '../controllers/travel_map_controller.dart';
 import '../core/database/app_database.dart';
 import '../models/extraction_result.dart';
 import '../models/marker_style.dart';
 import '../models/photo_metadata.dart';
 import '../repositories/archive_repository.dart';
+import '../repositories/caption_repository.dart';
+import '../widgets/caption_input_sheet.dart';
 import '../widgets/components/index.dart';
 import '../widgets/map_photo_marker.dart';
 import '../widgets/map_route_layer.dart';
@@ -37,6 +40,7 @@ class _TravelMapScreenState extends State<TravelMapScreen> {
   late final TravelMapController _mapCtrl;
   late final MapController _flutterMapCtrl;
   late final ArchiveController _archiveCtrl;
+  late final CaptionController _captionCtrl;
 
   @override
   void initState() {
@@ -49,6 +53,8 @@ class _TravelMapScreenState extends State<TravelMapScreen> {
     _archiveCtrl = ArchiveController(
       ArchiveRepository(AppDatabase()),
     )..init();
+    _captionCtrl = CaptionController(CaptionRepository(AppDatabase()))
+      ..loadCaptions(widget.result.metadata.map((m) => m.assetId).toList());
     _mapCtrl.addListener(_onPlaybackAdvance);
   }
 
@@ -67,6 +73,7 @@ class _TravelMapScreenState extends State<TravelMapScreen> {
     _mapCtrl.removeListener(_onPlaybackAdvance);
     _mapCtrl.dispose();
     _archiveCtrl.dispose();
+    _captionCtrl.dispose();
     super.dispose();
   }
 
@@ -214,17 +221,28 @@ class _TravelMapScreenState extends State<TravelMapScreen> {
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 280),
                 curve: Curves.easeOutCubic,
-                bottom: _mapCtrl.selectedMetadata != null ? 0 : -220,
+                bottom: _mapCtrl.selectedMetadata != null ? 0 : -260,
                 left: 0,
                 right: 0,
-                child: PhotoInfoPanel(
-                  metadata: _mapCtrl.selectedMetadata,
-                  asset: _mapCtrl.selectedMetadata != null
-                      ? widget.assetMap[_mapCtrl.selectedMetadata!.assetId]
-                      : null,
-                  onClose: () => _mapCtrl.selectMarker(null),
-                  onPrevious: () => _moveToAdjacentPhoto(-1),
-                  onNext: () => _moveToAdjacentPhoto(1),
+                child: ListenableBuilder(
+                  listenable: _captionCtrl,
+                  builder: (_, __) => PhotoInfoPanel(
+                    metadata: _mapCtrl.selectedMetadata,
+                    asset: _mapCtrl.selectedMetadata != null
+                        ? widget.assetMap[_mapCtrl.selectedMetadata!.assetId]
+                        : null,
+                    caption: _mapCtrl.selectedMetadata != null
+                        ? _captionCtrl
+                            .getCaption(_mapCtrl.selectedMetadata!.assetId)
+                        : null,
+                    onClose: () => _mapCtrl.selectMarker(null),
+                    onPrevious: () => _moveToAdjacentPhoto(-1),
+                    onNext: () => _moveToAdjacentPhoto(1),
+                    onEditCaption: _mapCtrl.selectedMetadata != null
+                        ? () => _showCaptionSheet(
+                            _mapCtrl.selectedMetadata!)
+                        : null,
+                  ),
                 ),
               ),
 
@@ -286,6 +304,27 @@ class _TravelMapScreenState extends State<TravelMapScreen> {
     );
   }
 
+  void _showCaptionSheet(PhotoMetadata meta) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CaptionInputSheet(
+        assetId: meta.assetId,
+        existing: _captionCtrl.getCaption(meta.assetId),
+        onSave: (text, style) => _captionCtrl.setCaption(
+          assetId: meta.assetId,
+          text: text,
+          style: style,
+        ),
+        onDelete: () {
+          _captionCtrl.removeCaption(meta.assetId);
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
   Future<void> _onCreateVideo() async {
     final assets = widget.result.metadata
         .map((m) => widget.assetMap[m.assetId])
@@ -322,10 +361,12 @@ class _TravelMapScreenState extends State<TravelMapScreen> {
     );
 
     // 영상 생성 시작
+    final assetIds = widget.result.metadata.map((m) => m.assetId).toList();
     await _archiveCtrl.create(
       assets: assets,
       metadataList: widget.result.metadata,
       title: '여행 ${_travelDateRange()}',
+      captions: _captionCtrl.captionsFor(assetIds),
     );
   }
 

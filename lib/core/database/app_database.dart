@@ -68,14 +68,43 @@ class VideoEditHistory extends Table {
   IntColumn get version => integer()();
 }
 
+/// 사진별 캡션 문구 저장소.
+/// [assetId]를 PK로 사용하며 upsert로 덮어쓴다.
+@DataClassName('PhotoCaptionRecord')
+class PhotoCaptions extends Table {
+  /// photo_manager AssetEntity.id
+  TextColumn get assetId => text()();
+
+  /// 사용자가 입력한 캡션 문구
+  TextColumn get captionText => text()();
+
+  /// [CaptionStyle] JSON 직렬화 문자열
+  TextColumn get styleJson => text()();
+
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {assetId};
+}
+
 // ── Database ──────────────────────────────────────────────────────────────────
 
-@DriftDatabase(tables: [VideoArchives, VideoGpsPoints, VideoEditHistory])
+@DriftDatabase(tables: [VideoArchives, VideoGpsPoints, VideoEditHistory, PhotoCaptions])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) async => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(photoCaptions);
+          }
+        },
+      );
 
   static QueryExecutor _openConnection() {
     return driftDatabase(name: 'travel_map_archiver');

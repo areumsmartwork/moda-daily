@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../models/photo_caption.dart';
 import '../models/photo_metadata.dart';
 
 /// 마커 탭 시 나타나는 하단 정보 패널.
@@ -16,6 +17,12 @@ class PhotoInfoPanel extends StatelessWidget {
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
 
+  /// 현재 사진에 저장된 캡션 (없으면 null)
+  final PhotoCaption? caption;
+
+  /// 캡션 추가/편집 버튼 탭 콜백
+  final VoidCallback? onEditCaption;
+
   const PhotoInfoPanel({
     super.key,
     required this.metadata,
@@ -23,6 +30,8 @@ class PhotoInfoPanel extends StatelessWidget {
     required this.onClose,
     this.onPrevious,
     this.onNext,
+    this.caption,
+    this.onEditCaption,
   });
 
   @override
@@ -129,6 +138,12 @@ class PhotoInfoPanel extends StatelessWidget {
                             icon: Icons.camera_alt_outlined,
                             text: m.cameraInfo,
                           ),
+                        const SizedBox(height: 6),
+                        // 캡션 영역
+                        _CaptionRow(
+                          caption: caption,
+                          onEditCaption: onEditCaption,
+                        ),
                       ],
                     ),
                   ),
@@ -196,6 +211,66 @@ String _formatDuration(int seconds) {
   final s = seconds % 60;
   if (m > 0) return '$m분 $s초';
   return '$s초';
+}
+
+// ── 캡션 행 ────────────────────────────────────────────────────────────────────
+
+class _CaptionRow extends StatelessWidget {
+  final PhotoCaption? caption;
+  final VoidCallback? onEditCaption;
+
+  const _CaptionRow({this.caption, this.onEditCaption});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onEditCaption,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: caption != null
+              ? Theme.of(context).colorScheme.primaryContainer.withAlpha(180)
+              : Colors.black.withAlpha(8),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              caption != null
+                  ? Icons.chat_bubble_outline
+                  : Icons.add_comment_outlined,
+              size: 14,
+              color: caption != null
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.black38,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: caption != null
+                  ? Text(
+                      caption!.text,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : const Text(
+                      '문구 추가하기',
+                      style: TextStyle(fontSize: 12, color: Colors.black38),
+                    ),
+            ),
+            if (caption != null)
+              Icon(Icons.edit_outlined,
+                  size: 13,
+                  color: Theme.of(context).colorScheme.primary),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _InfoRow extends StatelessWidget {

@@ -1371,6 +1371,289 @@ class VideoEditHistoryCompanion extends UpdateCompanion<VideoEditHistoryData> {
   }
 }
 
+class $PhotoCaptionsTable extends PhotoCaptions
+    with TableInfo<$PhotoCaptionsTable, PhotoCaptionRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PhotoCaptionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _assetIdMeta =
+      const VerificationMeta('assetId');
+  @override
+  late final GeneratedColumn<String> assetId = GeneratedColumn<String>(
+      'asset_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _captionTextMeta =
+      const VerificationMeta('captionText');
+  @override
+  late final GeneratedColumn<String> captionText = GeneratedColumn<String>(
+      'caption_text', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _styleJsonMeta =
+      const VerificationMeta('styleJson');
+  @override
+  late final GeneratedColumn<String> styleJson = GeneratedColumn<String>(
+      'style_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [assetId, captionText, styleJson, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'photo_captions';
+  @override
+  VerificationContext validateIntegrity(Insertable<PhotoCaptionRecord> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('asset_id')) {
+      context.handle(_assetIdMeta,
+          assetId.isAcceptableOrUnknown(data['asset_id']!, _assetIdMeta));
+    } else if (isInserting) {
+      context.missing(_assetIdMeta);
+    }
+    if (data.containsKey('caption_text')) {
+      context.handle(
+          _captionTextMeta,
+          captionText.isAcceptableOrUnknown(
+              data['caption_text']!, _captionTextMeta));
+    } else if (isInserting) {
+      context.missing(_captionTextMeta);
+    }
+    if (data.containsKey('style_json')) {
+      context.handle(_styleJsonMeta,
+          styleJson.isAcceptableOrUnknown(data['style_json']!, _styleJsonMeta));
+    } else if (isInserting) {
+      context.missing(_styleJsonMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {assetId};
+  @override
+  PhotoCaptionRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PhotoCaptionRecord(
+      assetId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}asset_id'])!,
+      captionText: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}caption_text'])!,
+      styleJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}style_json'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $PhotoCaptionsTable createAlias(String alias) {
+    return $PhotoCaptionsTable(attachedDatabase, alias);
+  }
+}
+
+class PhotoCaptionRecord extends DataClass
+    implements Insertable<PhotoCaptionRecord> {
+  /// photo_manager AssetEntity.id
+  final String assetId;
+
+  /// 사용자가 입력한 캡션 문구
+  final String captionText;
+
+  /// [CaptionStyle] JSON 직렬화 문자열
+  final String styleJson;
+  final DateTime updatedAt;
+  const PhotoCaptionRecord(
+      {required this.assetId,
+      required this.captionText,
+      required this.styleJson,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['asset_id'] = Variable<String>(assetId);
+    map['caption_text'] = Variable<String>(captionText);
+    map['style_json'] = Variable<String>(styleJson);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  PhotoCaptionsCompanion toCompanion(bool nullToAbsent) {
+    return PhotoCaptionsCompanion(
+      assetId: Value(assetId),
+      captionText: Value(captionText),
+      styleJson: Value(styleJson),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory PhotoCaptionRecord.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PhotoCaptionRecord(
+      assetId: serializer.fromJson<String>(json['assetId']),
+      captionText: serializer.fromJson<String>(json['captionText']),
+      styleJson: serializer.fromJson<String>(json['styleJson']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'assetId': serializer.toJson<String>(assetId),
+      'captionText': serializer.toJson<String>(captionText),
+      'styleJson': serializer.toJson<String>(styleJson),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  PhotoCaptionRecord copyWith(
+          {String? assetId,
+          String? captionText,
+          String? styleJson,
+          DateTime? updatedAt}) =>
+      PhotoCaptionRecord(
+        assetId: assetId ?? this.assetId,
+        captionText: captionText ?? this.captionText,
+        styleJson: styleJson ?? this.styleJson,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  PhotoCaptionRecord copyWithCompanion(PhotoCaptionsCompanion data) {
+    return PhotoCaptionRecord(
+      assetId: data.assetId.present ? data.assetId.value : this.assetId,
+      captionText:
+          data.captionText.present ? data.captionText.value : this.captionText,
+      styleJson: data.styleJson.present ? data.styleJson.value : this.styleJson,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PhotoCaptionRecord(')
+          ..write('assetId: $assetId, ')
+          ..write('captionText: $captionText, ')
+          ..write('styleJson: $styleJson, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(assetId, captionText, styleJson, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PhotoCaptionRecord &&
+          other.assetId == this.assetId &&
+          other.captionText == this.captionText &&
+          other.styleJson == this.styleJson &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PhotoCaptionsCompanion extends UpdateCompanion<PhotoCaptionRecord> {
+  final Value<String> assetId;
+  final Value<String> captionText;
+  final Value<String> styleJson;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const PhotoCaptionsCompanion({
+    this.assetId = const Value.absent(),
+    this.captionText = const Value.absent(),
+    this.styleJson = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PhotoCaptionsCompanion.insert({
+    required String assetId,
+    required String captionText,
+    required String styleJson,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  })  : assetId = Value(assetId),
+        captionText = Value(captionText),
+        styleJson = Value(styleJson),
+        updatedAt = Value(updatedAt);
+  static Insertable<PhotoCaptionRecord> custom({
+    Expression<String>? assetId,
+    Expression<String>? captionText,
+    Expression<String>? styleJson,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (assetId != null) 'asset_id': assetId,
+      if (captionText != null) 'caption_text': captionText,
+      if (styleJson != null) 'style_json': styleJson,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PhotoCaptionsCompanion copyWith(
+      {Value<String>? assetId,
+      Value<String>? captionText,
+      Value<String>? styleJson,
+      Value<DateTime>? updatedAt,
+      Value<int>? rowid}) {
+    return PhotoCaptionsCompanion(
+      assetId: assetId ?? this.assetId,
+      captionText: captionText ?? this.captionText,
+      styleJson: styleJson ?? this.styleJson,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (assetId.present) {
+      map['asset_id'] = Variable<String>(assetId.value);
+    }
+    if (captionText.present) {
+      map['caption_text'] = Variable<String>(captionText.value);
+    }
+    if (styleJson.present) {
+      map['style_json'] = Variable<String>(styleJson.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PhotoCaptionsCompanion(')
+          ..write('assetId: $assetId, ')
+          ..write('captionText: $captionText, ')
+          ..write('styleJson: $styleJson, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1378,12 +1661,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $VideoGpsPointsTable videoGpsPoints = $VideoGpsPointsTable(this);
   late final $VideoEditHistoryTable videoEditHistory =
       $VideoEditHistoryTable(this);
+  late final $PhotoCaptionsTable photoCaptions = $PhotoCaptionsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [videoArchives, videoGpsPoints, videoEditHistory];
+      [videoArchives, videoGpsPoints, videoEditHistory, photoCaptions];
 }
 
 typedef $$VideoArchivesTableCreateCompanionBuilder = VideoArchivesCompanion
@@ -2418,6 +2702,164 @@ typedef $$VideoEditHistoryTableProcessedTableManager = ProcessedTableManager<
     (VideoEditHistoryData, $$VideoEditHistoryTableReferences),
     VideoEditHistoryData,
     PrefetchHooks Function({bool archiveId})>;
+typedef $$PhotoCaptionsTableCreateCompanionBuilder = PhotoCaptionsCompanion
+    Function({
+  required String assetId,
+  required String captionText,
+  required String styleJson,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$PhotoCaptionsTableUpdateCompanionBuilder = PhotoCaptionsCompanion
+    Function({
+  Value<String> assetId,
+  Value<String> captionText,
+  Value<String> styleJson,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+class $$PhotoCaptionsTableFilterComposer
+    extends Composer<_$AppDatabase, $PhotoCaptionsTable> {
+  $$PhotoCaptionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get assetId => $composableBuilder(
+      column: $table.assetId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get captionText => $composableBuilder(
+      column: $table.captionText, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get styleJson => $composableBuilder(
+      column: $table.styleJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PhotoCaptionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PhotoCaptionsTable> {
+  $$PhotoCaptionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get assetId => $composableBuilder(
+      column: $table.assetId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get captionText => $composableBuilder(
+      column: $table.captionText, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get styleJson => $composableBuilder(
+      column: $table.styleJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PhotoCaptionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PhotoCaptionsTable> {
+  $$PhotoCaptionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get assetId =>
+      $composableBuilder(column: $table.assetId, builder: (column) => column);
+
+  GeneratedColumn<String> get captionText => $composableBuilder(
+      column: $table.captionText, builder: (column) => column);
+
+  GeneratedColumn<String> get styleJson =>
+      $composableBuilder(column: $table.styleJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PhotoCaptionsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PhotoCaptionsTable,
+    PhotoCaptionRecord,
+    $$PhotoCaptionsTableFilterComposer,
+    $$PhotoCaptionsTableOrderingComposer,
+    $$PhotoCaptionsTableAnnotationComposer,
+    $$PhotoCaptionsTableCreateCompanionBuilder,
+    $$PhotoCaptionsTableUpdateCompanionBuilder,
+    (
+      PhotoCaptionRecord,
+      BaseReferences<_$AppDatabase, $PhotoCaptionsTable, PhotoCaptionRecord>
+    ),
+    PhotoCaptionRecord,
+    PrefetchHooks Function()> {
+  $$PhotoCaptionsTableTableManager(_$AppDatabase db, $PhotoCaptionsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PhotoCaptionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PhotoCaptionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PhotoCaptionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> assetId = const Value.absent(),
+            Value<String> captionText = const Value.absent(),
+            Value<String> styleJson = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PhotoCaptionsCompanion(
+            assetId: assetId,
+            captionText: captionText,
+            styleJson: styleJson,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String assetId,
+            required String captionText,
+            required String styleJson,
+            required DateTime updatedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PhotoCaptionsCompanion.insert(
+            assetId: assetId,
+            captionText: captionText,
+            styleJson: styleJson,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PhotoCaptionsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PhotoCaptionsTable,
+    PhotoCaptionRecord,
+    $$PhotoCaptionsTableFilterComposer,
+    $$PhotoCaptionsTableOrderingComposer,
+    $$PhotoCaptionsTableAnnotationComposer,
+    $$PhotoCaptionsTableCreateCompanionBuilder,
+    $$PhotoCaptionsTableUpdateCompanionBuilder,
+    (
+      PhotoCaptionRecord,
+      BaseReferences<_$AppDatabase, $PhotoCaptionsTable, PhotoCaptionRecord>
+    ),
+    PhotoCaptionRecord,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2428,4 +2870,6 @@ class $AppDatabaseManager {
       $$VideoGpsPointsTableTableManager(_db, _db.videoGpsPoints);
   $$VideoEditHistoryTableTableManager get videoEditHistory =>
       $$VideoEditHistoryTableTableManager(_db, _db.videoEditHistory);
+  $$PhotoCaptionsTableTableManager get photoCaptions =>
+      $$PhotoCaptionsTableTableManager(_db, _db.photoCaptions);
 }

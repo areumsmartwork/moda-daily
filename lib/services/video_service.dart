@@ -6,6 +6,9 @@ import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../models/caption_style.dart';
+import '../models/photo_caption.dart';
+
 /// 진행률 콜백 (0.0 ~ 1.0)
 typedef VideoProgressCallback = void Function(double progress);
 
@@ -34,17 +37,20 @@ class VideoService {
     required List<AssetEntity> assets,
     double durationPerPhoto = 2.0,
     String outputFileName = 'travel_archive',
+    Map<String, PhotoCaption>? captions,
     VideoProgressCallback? onProgress,
   }) async {
     final dir = await _outputDirectory();
-    final outputPath = '${dir.path}/${outputFileName}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+    final outputPath =
+        '${dir.path}/${outputFileName}_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
     // 1. 사진 파일 경로 수집
     final imagePaths = await _resolveImagePaths(assets);
     if (imagePaths.isEmpty) throw Exception('내보낼 사진이 없습니다.');
 
     // 2. concat 입력 파일 작성 (FFmpeg concat demuxer 형식)
-    final concatFile = await _writeConcatFile(imagePaths, durationPerPhoto, dir);
+    final concatFile =
+        await _writeConcatFile(imagePaths, durationPerPhoto, dir);
 
     // 3. 진행률 추적 설정
     final totalDuration = durationPerPhoto * imagePaths.length;
@@ -55,19 +61,31 @@ class VideoService {
       }
     });
 
-    // 4. FFmpeg 실행
+    // 4. 캡션 drawtext 필터 빌드
+    final captionFilter = _buildCaptionFilter(
+      assets: assets,
+      captions: captions,
+      durationPerPhoto: durationPerPhoto,
+    );
+
+    // 5. FFmpeg 실행
     // - 9:16 (1080×1920), 30fps, libx264, scale+pad로 비율 맞춤
+    // - 캡션이 있으면 drawtext 필터를 scale/pad 뒤에 체인
+    const scaleFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,'
+        'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
+    final vf = captionFilter.isEmpty
+        ? scaleFilter
+        : '$scaleFilter,$captionFilter';
+
     final command = '-y '
         '-f concat -safe 0 -i "${concatFile.path}" '
-        '-vf "scale=1080:1920:force_original_aspect_ratio=decrease,'
-        'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black" '
+        '-vf "$vf" '
         '-r 30 -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p '
         '"$outputPath"';
 
     final session = await FFmpegKit.execute(command);
     final returnCode = await session.getReturnCode();
 
-    // 임시 파일 정리
     await concatFile.delete();
 
     if (!ReturnCode.isSuccess(returnCode)) {
@@ -173,6 +191,85 @@ class VideoService {
     final file = File('${dir.path}/concat_${DateTime.now().millisecondsSinceEpoch}.txt');
     await file.writeAsString(buffer.toString());
     return file;
+  }
+
+  /// 에셋 목록과 캡션 맵으로 FFmpeg drawtext 필터 체인을 빌드한다.
+  ///
+  /// 각 사진의 표시 시간(start~end)에만 해당 캡션을 오버레이한다.
+  /// 캡션이 없는 에셋은 건너뛴다. 캡션이 하나도 없으면 빈 문자열 반환.
+  static String _buildCaptionFilter({
+    required List<AssetEntity> assets,
+    required Map<String, PhotoCaption>? captions,
+    required double durationPerPhoto,
+  }) {
+    if (captions == null || captions.isEmpty) return '';
+
+    final filters = <String>[];
+
+    for (int i = 0; i < assets.length; i++) {
+      final id = assets[i].id;
+      final caption = captions[id];
+      if (caption == null) continue;
+
+      final start = i * durationPerPhoto;
+      final end = (i + 1) * durationPerPhoto;
+      final style = caption.style;
+
+      // FFmpeg drawtext에 안전한 텍스트 이스케이핑
+      final escapedText = _escapeDrawtext(caption.text);
+
+      // 텍스트 색상 → FFmpeg RGBA hex (0xRRGGBBAA)
+      final textColor = _toFfmpegColor(style.textColorHex);
+      final bgColor = _toFfmpegColor(style.bgColorHex);
+
+      // Y 위치: bottom=1620, center=960, top=120 (1920px 기준)
+      final y = switch (style.position) {
+        CaptionPosition.bottom => '1620',
+        CaptionPosition.center => '(h-text_h)/2',
+        CaptionPosition.top => '120',
+      };
+
+      final fontSize = style.fontSize.toInt();
+
+      // box: 배경 박스 여부 (alpha > 0)
+      final hasBox = (style.bgColorHex >> 24) & 0xFF > 0;
+      final boxPart = hasBox
+          ? 'box=1:boxcolor=$bgColor:boxborderw=12:'
+          : '';
+
+      filters.add(
+        'drawtext=text=\'$escapedText\':'
+        'x=(w-text_w)/2:'
+        'y=$y:'
+        'fontsize=$fontSize:'
+        'fontcolor=$textColor:'
+        '$boxPart'
+        "enable='between(t,$start,$end)'",
+      );
+    }
+
+    return filters.join(',');
+  }
+
+  /// FFmpeg drawtext용 텍스트 이스케이핑.
+  /// 작은따옴표, 콜론, 백슬래시를 이스케이프한다.
+  static String _escapeDrawtext(String text) {
+    return text
+        .replaceAll('\\', '\\\\')
+        .replaceAll("'", "\\'")
+        .replaceAll(':', '\\:');
+  }
+
+  /// 0xAARRGGBB → FFmpeg RGBA hex 문자열 (0xRRGGBBAA)
+  static String _toFfmpegColor(int argb) {
+    final a = (argb >> 24) & 0xFF;
+    final r = (argb >> 16) & 0xFF;
+    final g = (argb >> 8) & 0xFF;
+    final b = argb & 0xFF;
+    return '0x${r.toRadixString(16).padLeft(2, '0')}'
+        '${g.toRadixString(16).padLeft(2, '0')}'
+        '${b.toRadixString(16).padLeft(2, '0')}'
+        '${a.toRadixString(16).padLeft(2, '0')}';
   }
 
   static String _buildFilterChain(VideoEditConfig config) {
