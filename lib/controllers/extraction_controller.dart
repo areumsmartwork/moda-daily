@@ -2,14 +2,18 @@ import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../interfaces/i_extraction_view_model.dart';
+import '../interfaces/i_photo_service.dart';
 import '../models/extraction_result.dart';
-import '../services/photo_service.dart';
 
 /// 메타데이터 추출 작업의 상태를 관리한다.
 ///
 /// UI는 [IExtractionViewModel] 인터페이스만 통해 이 Controller와 상호작용한다.
 class ExtractionController extends ChangeNotifier
     implements IExtractionViewModel {
+  final IPhotoService _photoService;
+
+  ExtractionController(this._photoService);
+
   // ─── 상태 ─────────────────────────────────────────────────────────────────
 
   bool _isExtracting = false;
@@ -26,9 +30,7 @@ class ExtractionController extends ChangeNotifier
   ExtractionResult? get result => _result;
   String? get errorMessage => _errorMessage;
 
-  /// 0.0 ~ 1.0 진행률 (위젯 ProgressIndicator에 그대로 전달)
   double get progressRatio => _total > 0 ? _progress / _total : 0.0;
-
   String get progressText => '$_progress / $_total';
 
   // ─── 추출 실행 ────────────────────────────────────────────────────────────
@@ -44,11 +46,10 @@ class ExtractionController extends ChangeNotifier
     notifyListeners();
 
     try {
-      _result = await PhotoService.extractMetadata(
+      _result = await _photoService.extractMetadata(
         assets,
         onProgress: (current, total) {
           _progress = current;
-          // total은 변하지 않지만 혹시 모를 업데이트 반영
           _total = total;
           notifyListeners();
         },

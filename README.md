@@ -38,17 +38,18 @@
 
 ## 아키텍처
 
-**Business Logic / View 엄격 분리** 원칙으로 4개 레이어 + Interface 계층으로 구성한다.
+**MVVM + Repository + Clean Architecture** 패턴.  
+Business Logic / View 엄격 분리 원칙으로 5개 레이어 + Interface 계층으로 구성한다.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  View  (Screen / Widget)                                    │
 │                                                             │
-│  의존 타입: Interface만 (구체 Controller 클래스 모름)            │
+│  의존 타입: ViewModel Interface만 (구체 Controller 클래스 모름)  │
 └──────────────────┬──────────────────────────────────────────┘
-                   │  implements
+                   │  ListenableBuilder(listenable: IXxxViewModel)
 ┌──────────────────▼──────────────────────────────────────────┐
-│  Interface  (lib/interfaces/)   ← Hook 반환 타입에 해당        │
+│  ViewModel Interface  (lib/interfaces/)                     │
 │                                                             │
 │  IArchiveViewModel       ICaptionViewModel                  │
 │  ITravelMapViewModel     IPhotoSelectionViewModel           │
@@ -65,21 +66,33 @@
 │  ExtractionController                                       │
 │                                                             │
 │  extends ChangeNotifier implements I*ViewModel              │
-│  Service / Repository 호출, 상태 계산, 에러 처리               │
+│  Service를 생성자 주입받아 호출, 상태 계산, 에러 처리             │
 └──────────────────┬──────────────────────────────────────────┘
-                   │  uses
+                   │  uses (Interface로만 참조)
 ┌──────────────────▼──────────────────────────────────────────┐
-│  Service / Repository                                       │
+│  Service Interface  (lib/interfaces/)                       │
 │                                                             │
-│  PhotoService   VideoService   GalleryService               │
-│  ArchiveRepository   CaptionRepository                      │
+│  IPhotoService   IVideoService                              │
+│  IGalleryService IMapService                                │
+│                                                             │
+│  Controller는 구체 Service 클래스 이름을 알지 못함               │
 └──────────────────┬──────────────────────────────────────────┘
-                   │  uses (singleton)
+                   │  implements (구체 구현)
+┌──────────────────▼──────────────────────────────────────────┐
+│  Service  (lib/services/)  + Repository  (lib/repositories/)│
+│                                                             │
+│  PhotoService    VideoService    GalleryService             │
+│  MapService      ArchiveRepository   CaptionRepository      │
+│                                                             │
+│  const 클래스 — 상태를 보유하지 않음 (순수 외부 환경 통신)          │
+└──────────────────┬──────────────────────────────────────────┘
+                   │  생성자 주입 (Singleton)
 ┌──────────────────▼──────────────────────────────────────────┐
 │  AppDependencies  (lib/core/di/)  = Singleton DI            │
 │                                                             │
 │  AppDatabase — 앱 전체 단일 인스턴스                            │
-│  archiveRepository, captionRepository — 공유 싱글톤           │
+│  photoService / videoService / galleryService / mapService  │
+│  archiveRepository / captionRepository                      │
 │  createArchiveController()  createCaptionController()  ...  │
 └─────────────────────────────────────────────────────────────┘
 
@@ -98,11 +111,12 @@
 |---|---|---|
 | **Style** | 색상·타입·간격 토큰 정의 | 로직 포함 |
 | **Widget** | Constructor로만 데이터 주입받는 순수 UI | Controller/Service 직접 참조 |
-| **Screen** | Interface 구독(Watch), 레이아웃 조합, 라우팅 | 구체 Controller/Repository 직접 `new` |
-| **Interface** | ViewModel 공개 계약 (getter + async method 시그니처) | 구현 |
+| **Screen** | Interface 구독(Watch), 레이아웃 조합, 라우팅 | 구체 Controller/Service 직접 `new` |
+| **ViewModel Interface** | Controller가 View에 노출하는 계약 (getter + async method 시그니처) | 구현 |
 | **Controller** | 상태 관리, Service 호출, 에러 처리 | BuildContext / Widget import |
+| **Service Interface** | Service가 Controller에 노출하는 계약 | 구현 |
 | **Service** | 외부 환경 통신 (갤러리, FFmpeg, DB) | 상태 보유 |
-| **AppDependencies** | AppDatabase 싱글톤, Repository 공유, Controller 팩토리 | — |
+| **AppDependencies** | AppDatabase 싱글톤, Service·Repository 공유, Controller 팩토리 | — |
 
 ---
 
@@ -118,7 +132,7 @@ lib/
 │   │   │                              #   VideoEditHistory, PhotoCaptions 테이블)
 │   │   └── app_database.g.dart        # drift 자동 생성 코드
 │   ├── di/
-│   │   └── app_dependencies.dart      # Singleton DI — AppDatabase·Repository 공유
+│   │   └── app_dependencies.dart      # Singleton DI — DB·Service·Repository 공유
 │   └── theme/
 │       ├── app_colors.dart            # 색상 토큰
 │       ├── app_typography.dart        # 타이포그래피 시스템
@@ -126,25 +140,35 @@ lib/
 │       ├── app_theme.dart             # MaterialApp 테마 조합
 │       └── index.dart
 │
-├── interfaces/                        # ViewModel 계약 (Hook 반환 타입)
+├── interfaces/                        # 계약 레이어 — 구현 없음
+│   │   README.md                      # 인터페이스 설계 원칙 및 목록
+│   │
+│   │   # ── ViewModel 인터페이스 (View ↔ Controller) ──
 │   ├── i_archive_view_model.dart
 │   ├── i_caption_view_model.dart
 │   ├── i_travel_map_view_model.dart
 │   ├── i_photo_selection_view_model.dart
-│   └── i_extraction_view_model.dart
+│   ├── i_extraction_view_model.dart
+│   │
+│   │   # ── Service 인터페이스 (Controller ↔ Service) ──
+│   ├── i_photo_service.dart
+│   ├── i_video_service.dart
+│   ├── i_gallery_service.dart
+│   └── i_map_service.dart
 │
 ├── models/
 │   ├── photo_metadata.dart            # 사진/영상 메타데이터 + AssetMediaType
 │   ├── extraction_result.dart         # 추출 결과 집계
 │   ├── marker_style.dart              # 지도 마커 스타일 (thumbnail / icon / userPhoto)
 │   ├── caption_style.dart             # 캡션 스타일 (폰트·색상·위치 + 프리셋 4종)
-│   └── photo_caption.dart             # 사진 캡션 (assetId + text + CaptionStyle)
+│   ├── photo_caption.dart             # 사진 캡션 (assetId + text + CaptionStyle)
+│   └── video_edit_config.dart         # 영상 편집 옵션 (speed, bgm, trim, colorFilter)
 │
 ├── services/
-│   ├── photo_service.dart             # 갤러리 접근 + GPS EXIF 파싱
-│   ├── video_service.dart             # FFmpeg 렌더링 + caption drawtext 오버레이
-│   ├── gallery_service.dart           # 갤러리 저장
-│   └── map_service.dart               # Geocoding API (F-4)
+│   ├── photo_service.dart             # implements IPhotoService — 갤러리 접근·EXIF 파싱
+│   ├── video_service.dart             # implements IVideoService — FFmpeg 렌더링
+│   ├── gallery_service.dart           # implements IGalleryService — 갤러리 저장
+│   └── map_service.dart               # implements IMapService — Geocoding (F-4)
 │
 ├── repositories/
 │   ├── archive_repository.dart        # VideoArchive CRUD + GPS포인트 + 편집이력
@@ -239,11 +263,29 @@ HomeScreen
 ### 영상 생성 파이프라인
 ```
 사진 에셋 목록
-  → VideoService.exportVideo()        # FFmpeg concat + scale/pad 9:16
+  → IVideoService.exportVideo()        # FFmpeg concat + scale/pad 9:16
   → _buildCaptionFilter()             # drawtext 오버레이 (캡션 있는 사진만)
-  → VideoService.extractThumbnail()   # 첫 프레임 JPEG
+  → IVideoService.extractThumbnail()   # 첫 프레임 JPEG
   → ArchiveRepository.insert()        # DB 저장
-  → GalleryService.saveVideoToGallery() # 갤러리 저장
+  → IGalleryService.saveVideoToGallery() # 갤러리 저장
+```
+
+### Service Interface & DI
+모든 Service는 `const` 클래스로 상태를 보유하지 않는다.  
+Controller는 생성자 주입을 통해 Interface 타입으로만 Service를 참조한다.  
+`AppDependencies`가 싱글톤 구현체를 생성하고 Controller 팩토리에 주입한다.
+
+```dart
+// Controller — 구체 클래스를 모름
+class ArchiveController {
+  final IVideoService _videoService;
+  final IGalleryService _galleryService;
+  ArchiveController(this._repo, this._videoService, this._galleryService);
+}
+
+// DI — 구현체를 조립
+ArchiveController createArchiveController() =>
+    ArchiveController(archiveRepository, videoService, galleryService)..init();
 ```
 
 ---

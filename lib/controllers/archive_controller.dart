@@ -5,30 +5,31 @@ import 'package:photo_manager/photo_manager.dart';
 
 import '../core/database/app_database.dart';
 import '../interfaces/i_archive_view_model.dart';
+import '../interfaces/i_gallery_service.dart';
+import '../interfaces/i_video_service.dart';
 import '../models/photo_caption.dart';
 import '../models/photo_metadata.dart';
+import '../models/video_edit_config.dart';
 import '../repositories/archive_repository.dart';
-import '../services/gallery_service.dart';
-import '../services/video_service.dart';
 
 /// 숏폼 영상 생성 → GPS 연결 → DB 저장 → 갤러리 저장을 오케스트레이션.
 ///
 /// UI는 [IArchiveViewModel] 인터페이스만 통해 이 Controller와 상호작용한다.
 class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
   final ArchiveRepository _repo;
+  final IVideoService _videoService;
+  final IGalleryService _galleryService;
 
-  ArchiveController(this._repo);
+  ArchiveController(this._repo, this._videoService, this._galleryService);
 
   // ── 상태 ──────────────────────────────────────────────────────────────────
 
   ArchiveState _state = const ArchiveState.idle();
   ArchiveState get state => _state;
 
-  /// 저장된 아카이브 목록 (watchAll 스트림으로 갱신)
   List<VideoArchive> _archives = [];
   List<VideoArchive> get archives => List.unmodifiable(_archives);
 
-  /// 편집 이력 캐시 (archiveId → 이력 목록)
   final Map<int, List<VideoEditHistoryData>> _editHistories = {};
 
   // ── 초기화 ────────────────────────────────────────────────────────────────
@@ -42,12 +43,6 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
 
   // ── 영상 생성 ──────────────────────────────────────────────────────────────
 
-  /// 선택된 사진으로 영상을 생성하고 DB + 갤러리에 저장한다.
-  ///
-  /// [assets]: photo_manager 에셋 목록 (촬영순 정렬)
-  /// [metadataList]: 에셋과 1:1 대응하는 GPS 메타데이터
-  /// [title]: 아카이브 제목
-  /// [durationPerPhoto]: 사진 1장 노출 시간 (초)
   @override
   Future<void> create({
     required List<dynamic> assets,
@@ -60,8 +55,7 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
     _emit(const ArchiveState.creating(progress: 0.0));
 
     try {
-      // 1. FFmpeg 영상 생성
-      final videoPath = await VideoService.exportVideo(
+      final videoPath = await _videoService.exportVideo(
         assets: typedAssets,
         durationPerPhoto: durationPerPhoto,
         outputFileName: _sanitizeFileName(title),
@@ -69,11 +63,9 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
         onProgress: (p) => _emit(ArchiveState.creating(progress: p * 0.8)),
       );
 
-      // 2. 썸네일 추출
       _emit(const ArchiveState.creating(progress: 0.85));
-      final thumbPath = await VideoService.extractThumbnail(videoPath);
+      final thumbPath = await _videoService.extractThumbnail(videoPath);
 
-      // 3. DB 저장
       _emit(const ArchiveState.creating(progress: 0.9));
       final archiveId = await _repo.insert(
         title: title,
@@ -84,7 +76,6 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
         gpsPointCount: metadataList.length,
       );
 
-      // 4. GPS 포인트 저장
       await _repo.insertGpsPoints(
         archiveId,
         metadataList.asMap().entries.map((e) => GpsPointInput(
@@ -97,10 +88,9 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
             )).toList(),
       );
 
-      // 5. 갤러리 저장 (권한 없어도 DB 저장은 유지)
       _emit(const ArchiveState.creating(progress: 0.95));
       try {
-        await GalleryService.saveVideoToGallery(videoPath);
+        await _galleryService.saveVideoToGallery(videoPath);
       } catch (_) {}
 
       _emit(ArchiveState.done(archiveId: archiveId));
@@ -111,7 +101,7 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
 
   // ── 영상 편집 ──────────────────────────────────────────────────────────────
 
-  /// 기존 아카이브에 편집을 적용하고 새 버전을 저장한다.
+  @override
   Future<void> applyEdit({
     required int archiveId,
     required VideoEditConfig config,
@@ -125,7 +115,7 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
     _emit(const ArchiveState.editing(progress: 0.0));
 
     try {
-      final newPath = await VideoService.applyEdit(
+      final newPath = await _videoService.applyEdit(
         sourceVideoPath: archive.videoPath,
         config: config,
         onProgress: (p) => _emit(ArchiveState.editing(progress: p * 0.9)),
@@ -138,7 +128,7 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
       );
 
       try {
-        await GalleryService.saveVideoToGallery(newPath);
+        await _galleryService.saveVideoToGallery(newPath);
       } catch (_) {}
 
       _emit(ArchiveState.done(archiveId: archiveId));
@@ -149,11 +139,11 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
 
   // ── 편집 이력 / 롤백 ──────────────────────────────────────────────────────
 
-  /// VideoDetailScreen에서 직접 Repository 접근 없이 GPS 포인트를 조회한다.
   @override
   Future<List<VideoGpsPoint>> getGpsPoints(int archiveId) =>
       _repo.getGpsPoints(archiveId);
 
+  @override
   Future<List<VideoEditHistoryData>> loadEditHistory(int archiveId) async {
     final history = await _repo.getEditHistory(archiveId);
     _editHistories[archiveId] = history;
@@ -161,6 +151,7 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
     return history;
   }
 
+  @override
   Future<void> rollback(int archiveId, int version) async {
     _emit(const ArchiveState.editing(progress: 0.0));
     try {
@@ -173,6 +164,7 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
 
   // ── 삭제 ──────────────────────────────────────────────────────────────────
 
+  @override
   Future<void> delete(int archiveId) async {
     await _repo.delete(archiveId);
     notifyListeners();
@@ -180,6 +172,7 @@ class ArchiveController extends ChangeNotifier implements IArchiveViewModel {
 
   // ── 상태 초기화 ────────────────────────────────────────────────────────────
 
+  @override
   void resetState() => _emit(const ArchiveState.idle());
 
   // ── Private ────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../interfaces/i_photo_selection_view_model.dart';
-import '../services/photo_service.dart';
+import '../interfaces/i_photo_service.dart';
 
 enum PermissionStatus { initial, granted, limited, denied }
 
@@ -11,6 +11,10 @@ enum PermissionStatus { initial, granted, limited, denied }
 /// 직접 PhotoService를 호출하지 않는다.
 class PhotoSelectionController extends ChangeNotifier
     implements IPhotoSelectionViewModel {
+  final IPhotoService _photoService;
+
+  PhotoSelectionController(this._photoService);
+
   // ─── 상태 ─────────────────────────────────────────────────────────────────
 
   PermissionStatus _permissionStatus = PermissionStatus.initial;
@@ -28,7 +32,7 @@ class PhotoSelectionController extends ChangeNotifier
 
   static const _pageSize = 80;
 
-  // ─── Getters (Screen/Widget이 읽는 공개 인터페이스) ─────────────────────
+  // ─── Getters ──────────────────────────────────────────────────────────────
 
   PermissionStatus get permissionStatus => _permissionStatus;
   List<AssetPathEntity> get albums => List.unmodifiable(_albums);
@@ -44,17 +48,14 @@ class PhotoSelectionController extends ChangeNotifier
   int get selectedCount => _selectedIds.length;
   bool isSelected(String id) => _selectedIds.contains(id);
 
-  /// 현재 로드된 에셋 중 선택된 것만 반환 (메타데이터 추출 전달용)
   List<AssetEntity> get selectedAssets =>
       _assets.where((a) => _selectedIds.contains(a.id)).toList();
 
   // ─── 초기화 ───────────────────────────────────────────────────────────────
 
   Future<void> initialize() async {
-    // ACCESS_MEDIA_LOCATION 포함 권한 요청
-    // Android 10+에서 이 권한 없이 파일 읽으면 GPS EXIF가 자동 제거됨
     PhotoManager.setIgnorePermissionCheck(false);
-    final state = await PhotoService.requestPermission();
+    final state = await _photoService.requestPermission();
     _permissionStatus = switch (state) {
       PermissionState.authorized => PermissionStatus.granted,
       PermissionState.limited => PermissionStatus.limited,
@@ -68,7 +69,7 @@ class PhotoSelectionController extends ChangeNotifier
   }
 
   @override
-  Future<void> openAppSettings() => PhotoService.openSettings();
+  Future<void> openAppSettings() => _photoService.openSettings();
 
   // ─── 앨범 로드 ────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ class PhotoSelectionController extends ChangeNotifier
     notifyListeners();
 
     try {
-      _albums = await PhotoService.getAlbums();
+      _albums = await _photoService.getAlbums();
       if (_albums.isNotEmpty) {
         _currentAlbum = _albums.first;
         await _loadPhotos(reset: true);
@@ -125,14 +126,14 @@ class PhotoSelectionController extends ChangeNotifier
     try {
       final List<AssetEntity> fetched;
       if (_dateFilter != null) {
-        fetched = await PhotoService.getPhotosByDateRange(
+        fetched = await _photoService.getPhotosByDateRange(
           _currentAlbum!,
           _dateFilter!,
           page: _currentPage,
           pageSize: _pageSize,
         );
       } else {
-        fetched = await PhotoService.getPhotos(
+        fetched = await _photoService.getPhotos(
           _currentAlbum!,
           page: _currentPage,
           pageSize: _pageSize,

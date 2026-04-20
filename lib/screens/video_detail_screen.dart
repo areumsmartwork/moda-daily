@@ -11,7 +11,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../interfaces/i_archive_view_model.dart';
-import '../services/video_service.dart';
+import '../models/video_edit_config.dart';
 import '../widgets/components/index.dart';
 
 /// 영상 상세 화면 — 재생 + GPS 경로 리플레이 + 편집 진입.

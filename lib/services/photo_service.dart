@@ -2,17 +2,19 @@ import 'package:exif/exif.dart';
 import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:photo_manager/photo_manager.dart';
 
+import '../interfaces/i_photo_service.dart';
 import '../models/extraction_result.dart';
 import '../models/photo_metadata.dart';
 
 /// 갤러리 접근 및 EXIF 데이터 추출 서비스.
 /// 외부 환경(디바이스 사진첩, 파일 시스템)과 통신하는 유일한 창구.
-class PhotoService {
-  PhotoService._();
+class PhotoService implements IPhotoService {
+  const PhotoService();
 
   // ─── 권한 ────────────────────────────────────────────────────────────────
 
-  static Future<PermissionState> requestPermission() =>
+  @override
+  Future<PermissionState> requestPermission() =>
       PhotoManager.requestPermissionExtend(
         requestOption: const PermissionRequestOption(
           androidPermission: AndroidPermission(
@@ -22,11 +24,13 @@ class PhotoService {
         ),
       );
 
-  static Future<void> openSettings() => PhotoManager.openSetting();
+  @override
+  Future<void> openSettings() => PhotoManager.openSetting();
 
   // ─── 앨범 & 사진 목록 ────────────────────────────────────────────────────
 
-  static Future<List<AssetPathEntity>> getAlbums() =>
+  @override
+  Future<List<AssetPathEntity>> getAlbums() =>
       PhotoManager.getAssetPathList(
         type: RequestType.common,
         filterOption: FilterOptionGroup(
@@ -42,7 +46,8 @@ class PhotoService {
         ),
       );
 
-  static Future<List<AssetEntity>> getPhotos(
+  @override
+  Future<List<AssetEntity>> getPhotos(
     AssetPathEntity album, {
     int page = 0,
     int pageSize = 80,
@@ -50,7 +55,8 @@ class PhotoService {
       album.getAssetListPaged(page: page, size: pageSize);
 
   /// 날짜 범위로 필터링된 사진+영상 목록 반환
-  static Future<List<AssetEntity>> getPhotosByDateRange(
+  @override
+  Future<List<AssetEntity>> getPhotosByDateRange(
     AssetPathEntity album,
     DateTimeRange range, {
     int page = 0,
@@ -83,10 +89,8 @@ class PhotoService {
 
   // ─── 메타데이터 추출 ─────────────────────────────────────────────────────
 
-  /// 선택된 사진에서 GPS + 시간 + 카메라 정보를 일괄 추출한다.
-  ///
-  /// [onProgress]: (현재 처리 인덱스, 전체) 콜백 — Controller에서 UI 업데이트용으로 활용.
-  static Future<ExtractionResult> extractMetadata(
+  @override
+  Future<ExtractionResult> extractMetadata(
     List<AssetEntity> assets, {
     void Function(int current, int total)? onProgress,
   }) async {
@@ -128,7 +132,6 @@ class PhotoService {
     final bytes = await file.readAsBytes();
     final exif = await readExifFromBytes(bytes);
 
-    // GPS: EXIF 우선, 없으면 photo_manager fallback
     final lat = _parseGpsCoord(exif['GPS GPSLatitude'], exif['GPS GPSLatitudeRef']?.printable);
     final lng = _parseGpsCoord(exif['GPS GPSLongitude'], exif['GPS GPSLongitudeRef']?.printable);
 
@@ -163,7 +166,6 @@ class PhotoService {
   }
 
   static Future<PhotoMetadata?> _extractVideo(AssetEntity asset) async {
-    // 영상 GPS는 photo_manager의 latlngAsync()로만 읽음
     final latlng = await asset.latlngAsync();
     double? finalLat, finalLng;
     if (latlng != null) {
@@ -190,7 +192,6 @@ class PhotoService {
 
   // ─── Private: EXIF 파싱 헬퍼 ─────────────────────────────────────────────
 
-  /// IfdTag(DMS 형식) + 방향 ref → 10진수 위경도
   static double? _parseGpsCoord(IfdTag? tag, String? ref) {
     if (tag == null || ref == null) return null;
     try {
@@ -249,13 +250,11 @@ class PhotoService {
     }
   }
 
-  /// DateTimeOriginal(가장 정확) → DateTime(파일 수정 시각) 순 fallback
   static DateTime? _parseDateTime(Map<String, IfdTag> exif) {
     final raw = exif['EXIF DateTimeOriginal']?.printable ??
         exif['Image DateTime']?.printable;
     if (raw == null) return null;
     try {
-      // 형식: '2023:06:15 14:30:00'
       final parts = raw.trim().split(' ');
       if (parts.length != 2) return null;
       final d = parts[0].split(':');

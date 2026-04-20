@@ -2,21 +2,17 @@ import 'dart:io';
 
 import 'package:photo_manager/photo_manager.dart';
 
+import '../interfaces/i_gallery_service.dart';
+
 /// 생성된 영상/이미지를 기기 카메라 롤(갤러리)에 저장하는 서비스.
 ///
 /// photo_manager를 사용해 iOS 포토 라이브러리 / Android MediaStore에 저장한다.
 /// 파일 I/O만 담당하며 DB 기록은 [ArchiveRepository]가 처리한다.
-class GalleryService {
-  GalleryService._();
+class GalleryService implements IGalleryService {
+  const GalleryService();
 
-  /// MP4 파일을 카메라 롤에 저장한다.
-  ///
-  /// [filePath]: 저장할 MP4 파일의 로컬 절대 경로
-  /// [albumName]: 저장될 앨범 이름 (기본값: 'TravelMap ArchiVer')
-  ///
-  /// 반환값: 저장된 [AssetEntity].
-  /// 권한이 없거나 저장 실패 시 예외를 던진다.
-  static Future<AssetEntity> saveVideoToGallery(
+  @override
+  Future<AssetEntity> saveVideoToGallery(
     String filePath, {
     String albumName = 'TravelMap ArchiVer',
   }) async {
@@ -31,8 +27,8 @@ class GalleryService {
     return asset;
   }
 
-  /// 이미지 파일(썸네일 등)을 갤러리에 저장한다.
-  static Future<AssetEntity> saveImageToGallery(
+  @override
+  Future<AssetEntity> saveImageToGallery(
     String filePath, {
     String albumName = 'TravelMap ArchiVer',
   }) async {
@@ -57,7 +53,6 @@ class GalleryService {
   }
 
   static Future<void> _moveToAlbum(AssetEntity asset, String albumName) async {
-    // iOS/macOS 전용 앨범 분류 (Android는 MediaStore 폴더로 자동 분류됨)
     if (!Platform.isIOS && !Platform.isMacOS) return;
 
     final albums = await PhotoManager.getAssetPathList(type: RequestType.video);

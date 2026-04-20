@@ -4,7 +4,7 @@ import '../controllers/archive_controller.dart';
 import '../core/database/app_database.dart';
 import '../models/photo_caption.dart';
 import '../models/photo_metadata.dart';
-import '../services/video_service.dart';
+import '../models/video_edit_config.dart';
 
 /// 영상 아카이브 ViewModel이 View에 노출하는 계약.
 ///
